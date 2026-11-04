@@ -23,7 +23,10 @@ test('CSP forbids all network access and has no unsafe-inline / unsafe-eval', ()
 test('no external references anywhere in the page (no CDNs, fonts, analytics, trackers)', () => {
   // strip the vendored libraries (they contain URLs in comments) before scanning our own code
   const own = html.replace(/<script id="vendor-[^"]*">[\s\S]*?<\/script>/g, '');
-  assert.ok(!/(src|href|action|poster)\s*=\s*["']?\s*(https?:)?\/\//i.test(own), 'external src/href');
+  assert.ok(!/\b(src|action|poster)\s*=\s*["']?\s*(https?:)?\/\//i.test(own), 'external src/action');
+  // the only outbound reference is a plain, user-clicked <a> link to the project page (nothing is ever loaded from it)
+  const hrefs = [...own.matchAll(/<(\w+)\b[^>]*\bhref=["'](https?:[^"']*)/gi)].map((m) => `${m[1]} ${m[2]}`);
+  assert.deepEqual(hrefs, ['a https://github.com/bernhardbrugger/shardkey']);
   assert.ok(!/@import|url\(\s*["']?https?:/i.test(own), 'css import / external url()');
   assert.ok(!/\b(fetch|XMLHttpRequest|WebSocket|EventSource|sendBeacon|importScripts)\b/.test(own.replace(/<!--[\s\S]*?-->/g, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '')), 'network API used');
   assert.ok(!/<link\b/i.test(own), '<link> tag');
