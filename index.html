@@ -2,18 +2,425 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-spFnL42i4Xv7ENmktrYuu+fRHzXFtXlHixv3c3yOc1o=' 'sha256-jz39vPuVB32FT9GuXaK+CoQk8yah1mN1PKcB+EjAyPs=' 'sha256-OG1DiT2qrOnVUMFT0Z7Vz5BTeSC6EnNG0GqUMoiJqgc=' 'sha256-+M6yX2oaYMQB7nstNoVLZPYwADp/3j2nSLMGUSxORIE='; style-src 'sha256-qbkGCsHCWUH9GekzIAz3zvq5bXleL/Q291hMaxBZJ/s='; img-src 'self' data: blob:; media-src blob:; connect-src 'none'; font-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-spFnL42i4Xv7ENmktrYuu+fRHzXFtXlHixv3c3yOc1o=' 'sha256-jz39vPuVB32FT9GuXaK+CoQk8yah1mN1PKcB+EjAyPs=' 'sha256-OG1DiT2qrOnVUMFT0Z7Vz5BTeSC6EnNG0GqUMoiJqgc=' 'sha256-jVXQ1fto8NuZMLtBJppKMs/o0/JWUjbCy6rbbahqz3U='; style-src 'sha256-RDhXm8zku319kfrDrtbTyDYfICUnHE4bZ7bIOAkkMxk='; img-src 'self' data: blob:; media-src blob:; connect-src 'none'; font-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="dark">
 <meta name="description" content="Split a secret into QR codes. Any k of n bring it back. One offline HTML file.">
 <title>shardkey</title>
 <style>
-/*STYLE*/
+:root {
+  --bg: #0a0b0d; --panel: #111317; --panel2: #171a20; --line: #272c35; --line2: #343a45;
+  --ink: #ece8df; --mut: #8f95a1; --acid: #c9f53a; --acid-d: #8fb01c; --acid-ink: #0a0b0d;
+  --bad: #ff7676; --ok: #6ee7a0; --warn: #ffc15e; --paper: #f3f0e8; --paper-ink: #14151a;
+  --mono: ui-monospace, "Cascadia Code", "SF Mono", "JetBrains Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", "URW Palladio L", Georgia, serif;
+  --sans: "Avenir Next", "Segoe UI Variable Text", "Segoe UI", "Helvetica Neue", Roboto, "Noto Sans", sans-serif;
+  --r: 10px;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; min-height: 100vh; color: var(--ink); font: 16px/1.55 var(--sans);
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  background:
+    radial-gradient(1200px 500px at 85% -10%, rgba(201,245,58,.07), transparent 60%),
+    linear-gradient(115deg, transparent 0 62%, rgba(255,255,255,.018) 62% 62.2%, transparent 62.2%),
+    linear-gradient(65deg, transparent 0 78%, rgba(201,245,58,.025) 78% 78.3%, transparent 78.3%),
+    var(--bg);
+}
+::selection { background: var(--acid); color: var(--acid-ink); }
+a { color: var(--acid); }
+.mono { font-family: var(--mono); }
+.mut { color: var(--mut); }
+.skip { position: absolute; left: -999px; } .skip:focus { left: 8px; top: 8px; background: var(--acid); color: var(--acid-ink); padding: 6px 10px; z-index: 9; }
+
+/* ---------- layout ---------- */
+.wrap { width: min(920px, 100% - 28px); margin-inline: auto; }
+.banner { background: #2a2312; border-bottom: 1px solid #5a4817; color: #ffe2a3; font-size: .9rem; padding: 9px 14px; text-align: center; }
+.banner a { color: var(--warn); font-weight: 600; margin-left: 6px; }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 22px 0 10px; }
+.brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.logo { width: 46px; height: 46px; flex: none; }
+.logo .s1 { fill: var(--acid); } .logo .s2 { fill: var(--acid); opacity: .62; } .logo .s3 { fill: var(--acid); opacity: .82; } .logo .s4 { fill: var(--acid); opacity: .38; }
+h1 { margin: 0; font: italic 600 clamp(2rem, 6vw, 2.7rem)/1 var(--serif); letter-spacing: -.02em; }
+h1 b { color: var(--acid); font-weight: 600; }
+.tag { margin: 5px 0 0; color: var(--mut); font: .78rem/1.3 var(--mono); }
+.top-right { display: flex; align-items: center; gap: 8px; flex: none; }
+.pill { font: .72rem/1 var(--mono); padding: 7px 10px; border: 1px solid #2c4a2f; color: var(--ok); border-radius: 99px; background: rgba(110,231,160,.06); white-space: nowrap; }
+.pill::before { content: "●"; margin-right: 6px; font-size: .7em; }
+main { padding-bottom: 40px; }
+
+/* ---------- tabs ---------- */
+.tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin: 18px 0 18px; border: 1px solid var(--line); border-radius: var(--r); background: var(--panel); padding: 4px; }
+.tabs button {
+  appearance: none; border: 0; background: transparent; color: var(--mut); font: 600 .95rem/1 var(--mono);
+  padding: 15px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .02em; transition: background .15s, color .15s;
+}
+.tabs button:hover { color: var(--ink); }
+.tabs button[aria-selected="true"] { background: var(--acid); color: var(--acid-ink); }
+:focus-visible { outline: 2px solid var(--acid); outline-offset: 2px; }
+
+/* ---------- panels & forms ---------- */
+.box { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 20px; margin-bottom: 16px; }
+.box h2 { margin: 0 0 12px; font: 600 1.35rem/1.2 var(--serif); }
+.field { margin-bottom: 18px; }
+.field > label, .lbl { display: block; font: 600 .74rem/1 var(--mono); text-transform: uppercase; letter-spacing: .09em; color: var(--mut); margin-bottom: 8px; }
+.hint { font-size: .82rem; color: var(--mut); margin: 6px 0 0; }
+textarea, input[type="text"] {
+  width: 100%; background: var(--bg); color: var(--ink); border: 1px solid var(--line2); border-radius: 8px;
+  padding: 12px 13px; font: .95rem/1.45 var(--mono); resize: vertical;
+}
+textarea:focus, input[type="text"]:focus { border-color: var(--acid); outline: none; box-shadow: 0 0 0 3px rgba(201,245,58,.15); }
+textarea.secret-in { min-height: 112px; }
+.seg { display: inline-grid; grid-auto-flow: column; border: 1px solid var(--line2); border-radius: 8px; overflow: hidden; margin-bottom: 14px; }
+.seg label { margin: 0; cursor: pointer; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg span { display: block; padding: 10px 22px; font: 600 .85rem/1 var(--mono); color: var(--mut); background: var(--bg); }
+.seg input:checked + span { background: var(--panel2); color: var(--acid); box-shadow: inset 0 -2px 0 var(--acid); }
+.seg input:focus-visible + span { outline: 2px solid var(--acid); outline-offset: -2px; }
+.drop {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center;
+  border: 1.5px dashed var(--line2); border-radius: 10px; padding: 26px 14px; cursor: pointer; color: var(--mut); background: var(--bg);
+  text-transform: none; letter-spacing: 0; font: .95rem/1.4 var(--sans); margin: 0;
+}
+.drop:hover, .drop.over { border-color: var(--acid); color: var(--ink); }
+.drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.drop strong { color: var(--ink); font-family: var(--mono); word-break: break-all; }
+.kn { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 22px; }
+.kn .slider { background: var(--bg); border: 1px solid var(--line2); border-radius: 10px; padding: 14px 16px 12px; }
+.kn .big { font: 600 2.4rem/1 var(--serif); color: var(--acid); }
+.kn .row { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
+.kn .row > span:first-child { font: 600 .72rem/1 var(--mono); text-transform: uppercase; letter-spacing: .09em; color: var(--mut); }
+input[type="range"] { width: 100%; accent-color: var(--acid); height: 28px; margin: 0; }
+.kn-hint { grid-column: 1 / -1; margin: 0; padding: 12px 14px; border-left: 3px solid var(--acid); background: rgba(201,245,58,.05); border-radius: 0 8px 8px 0; font-size: .92rem; }
+details > summary { cursor: pointer; font: 600 .82rem/1.2 var(--mono); color: var(--mut); padding: 4px 0; }
+details > summary:hover { color: var(--ink); }
+.check { display: flex; gap: 10px; align-items: flex-start; margin-top: 10px; text-transform: none !important; letter-spacing: 0 !important; font: .92rem/1.4 var(--sans) !important; color: var(--ink) !important; }
+.check input { margin-top: 4px; accent-color: var(--acid); width: 18px; height: 18px; flex: none; }
+
+/* ---------- buttons ---------- */
+.btn {
+  appearance: none; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; text-decoration: none;
+  border: 1px solid var(--line2); background: var(--panel2); color: var(--ink); font: 600 .85rem/1 var(--mono);
+  padding: 13px 16px; border-radius: 8px; transition: border-color .15s, background .15s, transform .05s;
+}
+.btn:hover { border-color: var(--acid); } .btn:active { transform: translateY(1px); }
+.btn[disabled] { opacity: .5; cursor: progress; }
+.btn.primary { background: var(--acid); color: var(--acid-ink); border-color: var(--acid); padding: 16px 22px; font-size: .95rem; clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px)); border-radius: 0; }
+.btn.primary:hover { background: #d8ff55; }
+.btn.sm { padding: 9px 11px; font-size: .74rem; }
+.btn.danger:hover { border-color: var(--bad); color: var(--bad); }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.actions.mt { margin-top: 10px; }
+.field.flush { margin: 0; }
+.err { color: var(--bad); font: .9rem/1.4 var(--sans); margin: 12px 0 0; }
+.notice { border: 1px solid #4d4217; background: #1c1a10; border-radius: 8px; padding: 14px 16px; margin: 14px 0; font-size: .92rem; }
+.notice h3 { margin: 0 0 6px; font: 600 .9rem/1.2 var(--mono); color: var(--warn); }
+.notice p { margin: 0 0 10px; }
+
+/* ---------- output cards ---------- */
+.out-head p { margin: 0 0 14px; color: var(--mut); }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); gap: 18px; margin-top: 18px; }
+.share-card {
+  position: relative; background: var(--paper); color: var(--paper-ink); border-radius: 6px; padding: 18px 18px 14px;
+  box-shadow: 0 1px 0 rgba(255,255,255,.4) inset, 0 18px 40px -20px rgba(0,0,0,.9); overflow: hidden;
+}
+.share-card::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 6px; background: repeating-linear-gradient(115deg, #14151a 0 10px, var(--acid) 10px 20px); }
+.sc-top { display: flex; justify-content: space-between; align-items: baseline; margin-top: 6px; font: 600 .7rem/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: #5b5e66; }
+.sc-top b { color: var(--paper-ink); font: italic 600 1.1rem/1 var(--serif); text-transform: none; letter-spacing: -.01em; }
+.sc-label { margin: 12px 0 0; font: 600 1.25rem/1.2 var(--serif); word-break: break-word; }
+.sc-count { margin: 6px 0 10px; font: .88rem/1.3 var(--mono); }
+.sc-count b { font-size: 1.05rem; background: var(--paper-ink); color: var(--acid); padding: 2px 7px; border-radius: 3px; }
+.sc-qr { background: #fff; border-radius: 4px; padding: 0; line-height: 0; }
+.sc-qr svg { width: 100%; height: auto; display: block; }
+.sc-text { margin: 10px 0 0; font: .66rem/1.45 var(--mono); word-break: break-all; color: #2b2d34; user-select: all; }
+.sc-meta { margin: 10px 0 0; font-size: .68rem; line-height: 1.4; color: #5b5e66; }
+.sc-actions { display: flex; gap: 8px; margin-top: 12px; }
+.sc-actions .btn { background: #e6e2d6; color: var(--paper-ink); border-color: #cdc8b8; flex: 1; padding: 9px 8px; font-size: .72rem; }
+.sc-actions .btn:hover { border-color: var(--paper-ink); }
+
+/* ---------- recover ---------- */
+.prog { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.prog .count { font: 600 3rem/1 var(--serif); color: var(--acid); min-width: 1.9em; }
+.prog .count small { font-size: 1.3rem; color: var(--mut); }
+.prog p { margin: 0; white-space: pre-line; }
+.pips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; width: 100%; }
+.pip { width: 34px; height: 34px; border-radius: 6px; border: 1.5px dashed var(--line2); display: grid; place-items: center; font: 600 .8rem/1 var(--mono); color: var(--mut); }
+.pip.on { border: 1.5px solid var(--acid); background: var(--acid); color: var(--acid-ink); clip-path: polygon(0 0, 80% 0, 100% 20%, 100% 100%, 20% 100%, 0 80%); }
+.src-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+.cam { position: relative; margin: 0 0 16px; border-radius: 10px; overflow: hidden; background: #000; max-width: 480px; }
+.cam video { width: 100%; display: block; max-height: 60vh; object-fit: cover; }
+.cam .frame { position: absolute; inset: 14%; border: 2px solid var(--acid); border-radius: 12px; pointer-events: none; box-shadow: 0 0 0 999px rgba(0,0,0,.35); }
+.cam.hit .frame { border-color: #fff; box-shadow: 0 0 0 999px rgba(201,245,58,.3); }
+.cam .btn { position: absolute; right: 8px; bottom: 8px; }
+.msgs { display: grid; gap: 8px; margin: 0 0 14px; padding: 0; list-style: none; }
+.msgs li { padding: 11px 14px; border-radius: 8px; font-size: .92rem; border: 1px solid var(--line2); background: var(--panel2); display: flex; gap: 10px; justify-content: space-between; align-items: flex-start; }
+.msgs li.err { border-color: #6b2b2b; background: #231416; color: #ffb4b4; margin: 0; }
+.msgs li.ok { border-color: #1f5a37; background: #101e16; color: #a8f0c6; }
+.msgs li.info { color: var(--mut); }
+.msgs button { background: none; border: 0; color: inherit; cursor: pointer; font: 1rem/1 var(--mono); opacity: .7; padding: 0 2px; }
+.share-list { list-style: none; margin: 0 0 16px; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.share-list li { display: inline-flex; align-items: center; gap: 8px; padding: 6px 6px 6px 12px; border: 1px solid var(--line2); border-radius: 99px; background: var(--panel2); font: .8rem/1 var(--mono); }
+.share-list button { border: 0; width: 24px; height: 24px; border-radius: 50%; background: var(--bg); color: var(--mut); cursor: pointer; }
+.share-list button:hover { color: var(--bad); }
+.result { border-color: #2d5a1e; background: linear-gradient(180deg, rgba(201,245,58,.07), transparent 60%), var(--panel); }
+.result .ok { color: var(--ok); font: 600 .95rem/1.3 var(--mono); margin: 0 0 4px; }
+.secret-out { display: block; margin: 12px 0; padding: 14px; background: var(--bg); border: 1px dashed var(--line2); border-radius: 8px; font: .98rem/1.5 var(--mono); white-space: pre-wrap; word-break: break-word; max-height: 50vh; overflow: auto; }
+.secret-out.masked { letter-spacing: .25em; color: var(--mut); user-select: none; }
+
+/* ---------- explainer ---------- */
+.explain { border: 1px solid var(--line); border-radius: var(--r); background: var(--panel); padding: 6px 20px; margin-top: 8px; }
+.explain > summary { padding: 14px 0; font-size: .95rem; color: var(--ink); }
+.explain .body { padding: 0 0 16px; max-width: 70ch; }
+.explain .body p { margin: 0 0 12px; }
+.poly { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin: 14px 0 6px; }
+.poly-ctl { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: center; margin-bottom: 6px; font: .8rem/1 var(--mono); color: var(--mut); }
+.poly-ctl label { display: flex; align-items: center; gap: 8px; margin: 0; text-transform: none; letter-spacing: 0; font: .8rem/1 var(--mono); color: var(--ink); }
+.poly-ctl input[type="range"] { width: 90px; }
+.poly-ctl input[type="checkbox"] { accent-color: var(--acid); width: 16px; height: 16px; }
+#polysvg { width: 100%; height: auto; display: block; touch-action: none; user-select: none; }
+#polysvg .grid { stroke: #1f242c; stroke-width: 1; } #polysvg .axis { stroke: #3a414d; stroke-width: 1.5; }
+#polysvg text { fill: var(--mut); font: 11px var(--mono); }
+#polysvg .curve { fill: none; stroke: var(--acid); stroke-width: 2.4; stroke-linecap: round; }
+#polysvg .curve.ghost { stroke-width: 1.6; }
+#polysvg .pt { fill: var(--bg); stroke: var(--ink); stroke-width: 2.5; cursor: ns-resize; touch-action: none; }
+#polysvg .pt:hover, #polysvg .pt:focus { stroke: var(--acid); outline: none; }
+#polysvg .sec { fill: var(--acid); stroke: var(--bg); stroke-width: 2; }
+#polysvg .sec.ghost { opacity: .5; }
+#polysvg .sec-l { fill: var(--acid); font-weight: 700; }
+.poly-read { font: .85rem/1.4 var(--mono); color: var(--ink); margin: 4px 4px 0; min-height: 2.6em; }
+
+footer { border-top: 1px solid var(--line); padding: 22px 0 36px; color: var(--mut); font-size: .82rem; }
+footer p { margin: 0 0 6px; }
+.toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); background: var(--acid); color: var(--acid-ink); font: 600 .85rem/1 var(--mono); padding: 11px 16px; border-radius: 8px; z-index: 20; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+
+@media (max-width: 560px) {
+  .kn { grid-template-columns: 1fr; }
+  .box { padding: 16px; }
+  .pill { display: none; }
+  .btn.primary { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* ---------- print: one card per page, nothing else ---------- */
+@media print {
+  @page { size: A4 portrait; margin: 12mm; }
+  html, body { background: #fff !important; color: #000 !important; }
+  body { min-height: 0; }
+  .banner, .top, .tabs, #panel-recover, #split-form, .out-head, .explain, footer, .toast, .no-print { display: none !important; }
+  main, .wrap { width: auto; margin: 0; padding: 0; }
+  #panel-split { display: block !important; }
+  #split-output { display: block !important; }
+  .cards { display: block; margin: 0; }
+  .share-card {
+    break-after: page; page-break-after: always; box-shadow: none; border: 1.5px solid #000; border-radius: 0;
+    background: #fff; color: #000; padding: 10mm 12mm; height: 272mm; display: flex; flex-direction: column; align-items: center; text-align: center;
+  }
+  .share-card:last-child { break-after: auto; page-break-after: auto; }
+  .share-card::before { display: none; }
+  .sc-top { width: 100%; justify-content: space-between; color: #000; font-size: 9pt; }
+  .sc-top b { font-size: 16pt; }
+  .sc-label { font-size: 24pt; margin-top: 8mm; }
+  .sc-count { font-size: 14pt; margin: 3mm 0 6mm; }
+  .sc-count b { background: none; color: #000; padding: 0; border: 1.5px solid #000; padding: 1mm 3mm; }
+  .sc-qr { width: 118mm; border: 0; }
+  .sc-text { font-size: 8.5pt; color: #000; margin-top: 8mm; text-align: left; width: 100%; }
+  .sc-meta { font-size: 10pt; color: #000; margin-top: auto; }
+}
 </style>
 </head>
 <body>
-<!--BODY-->
+<a class="skip" href="#main" data-i18n="skip">Skip to content</a>
+<div id="hostedBanner" class="banner no-print" hidden>
+  <span data-i18n="hosted">You are using the hosted copy.</span>
+  <a id="hostedDl" href="#" download="shardkey.html" data-i18n="hostedDl">Download index.html</a>
+</div>
+
+<header class="wrap top no-print">
+  <div class="brand">
+    <svg class="logo" viewBox="0 0 48 48" aria-hidden="true">
+      <path class="s1" d="M5 26 L21 4 L26 22 Z"/><path class="s2" d="M28 7 L44 24 L24 26 Z"/>
+      <path class="s3" d="M7 30 L24 28 L19 45 Z"/><path class="s4" d="M28 30 L44 28 L31 45 Z"/>
+    </svg>
+    <div>
+      <h1>shard<b>key</b></h1>
+      <p class="tag" data-i18n="tagline">Split a secret into QR codes. Any k of n bring it back.</p>
+    </div>
+  </div>
+  <div class="top-right">
+    <span class="pill" id="offlinePill" data-i18n="offline" data-i18n-title="offlineTip">100% offline</span>
+    <button class="btn sm" id="langBtn" type="button" aria-label="Language">DE</button>
+  </div>
+</header>
+
+<main id="main" class="wrap">
+  <div class="tabs no-print" role="tablist" aria-label="Mode">
+    <button id="tab-split" role="tab" aria-selected="true" aria-controls="panel-split" type="button" data-i18n="tabSplit">Split</button>
+    <button id="tab-recover" role="tab" aria-selected="false" aria-controls="panel-recover" tabindex="-1" type="button" data-i18n="tabRecover">Restore</button>
+  </div>
+
+  <!-- ================= SPLIT ================= -->
+  <section id="panel-split" role="tabpanel" aria-labelledby="tab-split">
+    <form id="split-form" class="box no-print" autocomplete="off" novalidate>
+      <div class="field">
+        <span class="lbl" data-i18n="lblSource">What do you want to protect?</span>
+        <div class="seg" role="radiogroup">
+          <label><input type="radio" name="src" value="text" checked><span data-i18n="srcText">Text</span></label>
+          <label><input type="radio" name="src" value="file"><span data-i18n="srcFile">File</span></label>
+        </div>
+        <div id="srcTextBox">
+          <textarea id="secretText" class="secret-in" rows="4" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off"
+            data-i18n-ph="phSecret" placeholder="Password, recovery seed, note ..." aria-label="Secret"></textarea>
+        </div>
+        <div id="srcFileBox" hidden>
+          <label class="drop" id="drop" for="secretFile">
+            <span id="dropText" data-i18n="lblFile">Choose a file or drop it here</span>
+            <input type="file" id="secretFile">
+          </label>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="label" data-i18n="lblLabel">Label (optional)</label>
+        <input type="text" id="label" maxlength="60" autocomplete="off" data-i18n-ph="phLabel" placeholder="e.g. Emergency password">
+        <p class="hint" data-i18n="labelHint">Printed in plain text on every card.</p>
+      </div>
+
+      <div class="field kn">
+        <div class="slider">
+          <div class="row"><span data-i18n="lblN">Shares (n)</span><span class="big" id="nOut">5</span></div>
+          <input type="range" id="nRange" min="2" max="16" value="5" aria-label="n">
+        </div>
+        <div class="slider">
+          <div class="row"><span data-i18n="lblK">Needed (k)</span><span class="big" id="kOut">3</span></div>
+          <input type="range" id="kRange" min="2" max="5" value="3" aria-label="k">
+        </div>
+        <p class="kn-hint" id="knHint"></p>
+      </div>
+
+      <details class="field">
+        <summary data-i18n="advanced">Advanced</summary>
+        <label class="check"><input type="checkbox" id="forceAes"><span data-i18n="forceAes">Always encrypt with AES-256-GCM</span></label>
+        <p class="hint" data-i18n="forceAesHint">...</p>
+      </details>
+
+      <div class="actions">
+        <button class="btn primary" id="btnGenerate" type="submit" data-i18n="btnGenerate">Create shares</button>
+      </div>
+      <p class="err" id="splitErr" role="alert" hidden></p>
+    </form>
+
+    <div id="split-output" hidden>
+      <div class="box out-head no-print">
+        <h2 data-i18n="outTitle">Your shares</h2>
+        <p id="outSummary"></p>
+        <div class="actions">
+          <button class="btn" id="btnPrint" type="button" data-i18n="btnPrint">Print</button>
+          <button class="btn" id="btnPngAll" type="button" data-i18n="btnPngAll">All as PNG</button>
+          <button class="btn" id="btnCopyAll" type="button" data-i18n="btnCopyAll">Copy all texts</button>
+          <button class="btn danger" id="btnClear" type="button" data-i18n="btnClear">Clear everything</button>
+        </div>
+        <div id="ctBox" class="notice" hidden>
+          <h3 data-i18n="ctTitle">Ciphertext file</h3>
+          <p id="ctText"></p>
+          <button class="btn" id="btnCt" type="button"></button>
+        </div>
+      </div>
+      <div id="cards" class="cards"></div>
+    </div>
+  </section>
+
+  <!-- ================= RECOVER ================= -->
+  <section id="panel-recover" role="tabpanel" aria-labelledby="tab-recover" hidden>
+    <div class="box">
+      <div class="prog">
+        <div class="count" id="progCount" aria-hidden="true">0</div>
+        <p id="progText" role="status" aria-live="polite"></p>
+      </div>
+      <div class="pips" id="pips" aria-hidden="true"></div>
+    </div>
+
+    <div class="box no-print">
+      <div class="src-row">
+        <button class="btn" id="btnCam" type="button" data-i18n="btnCam">Scan with camera</button>
+        <label class="btn" for="imgFiles" id="imgBtn"><span data-i18n="btnImg">Upload image</span>
+          <input type="file" id="imgFiles" accept="image/*" multiple hidden>
+        </label>
+      </div>
+      <div class="cam" id="camBox" hidden>
+        <video id="camVideo" playsinline muted></video>
+        <div class="frame"></div>
+        <button class="btn sm" id="btnCamStop" type="button" data-i18n="btnCamStop">Stop camera</button>
+      </div>
+      <div class="field flush">
+        <label for="pasteBox" data-i18n="lblPaste">Paste share text</label>
+        <textarea id="pasteBox" rows="3" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="SHK1-..."></textarea>
+        <div class="actions mt">
+          <button class="btn" id="btnAddText" type="button" data-i18n="btnAddText">Add</button>
+        </div>
+      </div>
+    </div>
+
+    <ul class="msgs" id="msgs" aria-live="polite"></ul>
+    <ul class="share-list" id="shareList"></ul>
+
+    <div class="box notice" id="ctNeed" hidden>
+      <h3 data-i18n="ctNeedTitle">Ciphertext file needed</h3>
+      <p id="ctNeedText"></p>
+      <label class="btn" for="ctFile"><span data-i18n="ctPick">Choose ciphertext file</span>
+        <input type="file" id="ctFile" hidden>
+      </label>
+    </div>
+
+    <div class="box result" id="result" hidden>
+      <p class="ok" data-i18n="resOk">Restored and verified</p>
+      <p class="hint" data-i18n="resOkHint">The hash of the original matches.</p>
+      <div id="resText" hidden>
+        <output id="secretOut" class="secret-out masked" for="btnReveal"></output>
+        <div class="actions">
+          <button class="btn" id="btnReveal" type="button" aria-pressed="false" data-i18n="reveal">Reveal</button>
+          <button class="btn" id="btnCopySecret" type="button" data-i18n="copySecret">Copy</button>
+        </div>
+      </div>
+      <div id="resFile" hidden>
+        <p class="mono" id="resFileInfo"></p>
+        <button class="btn primary" id="btnFileDl" type="button" data-i18n="fileDl">Download file</button>
+      </div>
+    </div>
+
+    <div class="actions no-print">
+      <button class="btn danger" id="btnResetRec" type="button" data-i18n="resetRec">Start over</button>
+    </div>
+  </section>
+
+  <!-- ================= EXPLAINER ================= -->
+  <details class="explain no-print" id="explain">
+    <summary data-i18n="explTitle">How does it work?</summary>
+    <div class="body">
+      <p data-i18n-html="expl1"></p>
+      <p data-i18n-html="expl2"></p>
+      <div class="poly">
+        <div class="poly-ctl">
+          <label>k <input type="range" id="pk" min="2" max="5" value="3" aria-label="k"> <b id="pkOut" class="mono">3</b></label>
+          <label><input type="checkbox" id="pless"> <span data-i18n="polyLess">Only k-1 points known</span></label>
+          <button class="btn sm" id="prand" type="button" data-i18n="polyRand">Shuffle</button>
+        </div>
+        <svg id="polysvg" viewBox="0 0 560 290" role="img" aria-label="Polynomial through k points"></svg>
+        <p class="poly-read" id="polyRead" aria-live="polite"></p>
+      </div>
+      <p data-i18n-html="expl3"></p>
+      <p class="mut" data-i18n-html="expl4"></p>
+    </div>
+  </details>
+</main>
+
+<footer class="wrap no-print">
+  <p data-i18n-html="footSafe"></p>
+  <p class="mono"><span data-i18n="footCredits">MIT licensed.</span> <a href="https://github.com/bernhardbrugger/shardkey" rel="noopener noreferrer">github.com/bernhardbrugger/shardkey</a></p>
+</footer>
+<div class="toast" id="toast" role="status" hidden></div>
 
 <!--
   Third-party code, inlined verbatim (see THIRD_PARTY_LICENSES.md):
@@ -12780,7 +13187,748 @@ root.SHK = {
 </script>
 
 <script id="shk-ui">
-/*UI*/
+/* ==========================================================================
+   shardkey UI - everything below only wires the (already audited) core to the DOM.
+   No network APIs are used anywhere; the CSP would block them anyway.
+   ========================================================================== */
+(function () {
+'use strict';
+const SHK = globalThis.SHK;
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => Array.from(document.querySelectorAll(s));
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const MAX_FILE = 25 * 1024 * 1024;
+
+/* ------------------------------------------------------------------ i18n */
+const T = {
+  de: {
+    skip: 'Zum Inhalt springen',
+    hosted: 'Du nutzt gerade die gehostete Kopie. Für echte Geheimnisse: Seite herunterladen und lokal, offline öffnen.',
+    hostedDl: 'index.html herunterladen',
+    tagline: 'Geheimnis in QR-Codes aufteilen. Beliebige k von n holen es zurück.',
+    offline: '100 % offline', offlineTip: 'Kein Netzwerkzugriff: per Content-Security-Policy technisch blockiert.',
+    tabSplit: 'Aufteilen', tabRecover: 'Wiederherstellen',
+    lblSource: 'Was soll geschützt werden?', srcText: 'Text', srcFile: 'Datei',
+    phSecret: 'Passwort, Recovery-Seed, Notiztext …', lblFile: 'Datei wählen oder hierher ziehen',
+    lblLabel: 'Label (optional)', phLabel: 'z. B. Notfall-Passwort',
+    labelHint: 'Steht im Klartext auf jeder Karte – schreibe nichts Geheimes hinein.',
+    lblN: 'Shares gesamt (n)', lblK: 'Davon nötig (k)',
+    knHint: 'Beliebige {k} von {n} Shares stellen das Geheimnis wieder her. {k1} oder weniger verraten mathematisch nichts.',
+    advanced: 'Erweitert', forceAes: 'Immer mit AES-256-GCM verschlüsseln',
+    forceAesHint: 'Standard: kleine Geheimnisse werden direkt aufgeteilt, große automatisch verschlüsselt (nur der Schlüssel wird aufgeteilt).',
+    btnGenerate: 'Shares erzeugen', working: 'Erzeuge …',
+    outTitle: 'Deine Shares',
+    outDirect: '{n} Shares erzeugt, {k} nötig. Jeder Share enthält ein Stück des Geheimnisses selbst.',
+    outAes: '{n} Shares erzeugt, {k} nötig. Das Geheimnis ist mit AES-256-GCM verschlüsselt; die Shares enthalten nur den Schlüssel.',
+    outEmbedded: ' Der Ciphertext steckt in jedem Share.',
+    outSep: ' Der Ciphertext liegt in einer separaten Datei (siehe unten).',
+    ctTitle: 'Ciphertext-Datei',
+    ctText: 'Der verschlüsselte Inhalt ist für einen QR-Code zu groß. Speichere diese Datei sicher (ohne {k} Shares ist sie wertlos, z. B. Cloud oder USB-Stick). Zum Wiederherstellen brauchst du sie plus {k} Shares.',
+    ctDl: 'Ciphertext herunterladen (.shkc)',
+    btnPrint: 'Drucken (1 Karte pro Seite)', btnPngAll: 'Alle als PNG', btnCopyAll: 'Alle Texte kopieren', btnClear: 'Alles löschen',
+    btnCopy: 'Text kopieren', btnPng: 'PNG', copied: 'Kopiert', pngStarted: 'PNG-Download gestartet',
+    cardShare: 'Share {x} von {n}', cardNeed: '{k} nötig', cardSet: 'Set {id}',
+    cardHow: 'Wiederherstellen: shardkey öffnen → „Wiederherstellen“ → diesen QR-Code scannen oder den Text eingeben. Shares getrennt aufbewahren.',
+    cardAes: 'Dieses Set braucht zusätzlich die Ciphertext-Datei (.shkc).',
+    errEmpty: 'Bitte gib ein Geheimnis ein.', errNoFile: 'Bitte wähle eine Datei.', errTooLarge: 'Die Datei ist zu groß (max. {max} MB).',
+    errSplit: 'Aufteilen fehlgeschlagen: {msg}',
+    progNone: 'Noch kein Share erfasst. Scanne einen QR-Code, lade ein Bild hoch oder füge den Text ein.',
+    progHave: '{have} von {k} Shares erfasst', progMore: 'noch {more} nötig', progSet: 'Set {id} · n = {n}',
+    progDone: 'Genug Shares – Geheimnis wiederhergestellt.',
+    btnCam: 'Mit Kamera scannen', btnCamStop: 'Kamera stoppen', btnImg: 'Bild hochladen',
+    lblPaste: 'Share-Text einfügen', btnAddText: 'Hinzufügen',
+    camUnsupported: 'Kamera nicht verfügbar (Browser oder unsicherer Kontext). Nutze Bild-Upload oder Text.',
+    camDenied: 'Kein Kamerazugriff (verweigert oder keine Kamera gefunden).',
+    msgAdded: 'Share {x} hinzugefügt.', msgDup: 'Share {x} war schon erfasst.',
+    noShares: 'Keine Share-Texte gefunden (sie beginnen mit „SHK1-“).',
+    noQr: 'In „{name}“ wurde kein QR-Code erkannt.',
+    imgFail: '„{name}“ konnte nicht als Bild gelesen werden.',
+    prefix: 'Eintrag {i}: ',
+    err_BAD_PREFIX: 'Das ist kein shardkey-Share (er müsste mit „SHK1-“ beginnen).',
+    err_UNSUPPORTED_VERSION: 'Dieser Share hat Format-Version {version}; diese Seite versteht nur Version 1.',
+    err_BAD_ENCODING: 'Ungültiges Zeichen „{char}“ an Position {pos} – Tippfehler?',
+    err_TRUNCATED: 'Der Share-Text ist unvollständig oder abgeschnitten.',
+    err_BAD_CHECKSUM: 'Prüfsumme falsch – Tipp- oder Scanfehler. Bitte erneut scannen bzw. Text prüfen.',
+    err_BAD_HEADER: 'Der Share ist beschädigt (ungültiger Kopfbereich).',
+    err_MIXED_SETS: 'Dieser Share gehört zu einem anderen Set ({b}) als die bereits erfassten ({a}) und wurde nicht hinzugefügt.',
+    err_INCONSISTENT: 'Dieser Share passt nicht zu den anderen seines Sets (abweichende Parameter).',
+    err_DUPLICATE_INDEX: 'Für Share {x} liegen zwei verschiedene Versionen vor – eine davon ist beschädigt.',
+    err_CT_MISMATCH: 'Diese Ciphertext-Datei gehört zu Set {b}, benötigt wird Set {a}.',
+    err_BAD_CT_FILE: 'Das ist keine gültige Ciphertext-Datei (.shkc) oder sie ist beschädigt.',
+    err_DECRYPT_FAILED: 'Entschlüsselung fehlgeschlagen: Die Shares passen nicht zusammen oder die Ciphertext-Datei ist beschädigt.',
+    err_VERIFY_FAILED: 'Die Prüfsumme des wiederhergestellten Geheimnisses stimmt nicht: Mindestens ein Share ist falsch. Entferne verdächtige Shares oder scanne sie neu.',
+    err_NEED_CIPHERTEXT: 'Die Ciphertext-Datei fehlt.',
+    err_TOO_FEW: 'Zu wenige Shares.',
+    err_UNKNOWN: 'Unerwarteter Fehler: {msg}',
+    ctNeedTitle: 'Ciphertext-Datei nötig',
+    ctNeedText: 'Dieses Set speichert größere Daten verschlüsselt. Wähle die zugehörige .shkc-Datei.',
+    ctLoaded: 'Ciphertext geladen: {name}', ctPick: 'Ciphertext-Datei wählen',
+    resOk: 'Wiederhergestellt und verifiziert', resOkHint: 'Die Prüfsumme des Originals stimmt.',
+    reveal: 'Anzeigen', hide: 'Verbergen', copySecret: 'Kopieren', fileDl: 'Datei herunterladen', resFileInfo: '{name} · {size}',
+    resetRec: 'Neu beginnen', shareChip: 'Share {x}', remove: 'Entfernen',
+    explTitle: 'Wie funktioniert das? (Shamir’s Secret Sharing)',
+    expl1: 'Durch zwei Punkte geht genau eine Gerade, durch drei Punkte genau eine Parabel, durch <b>k</b> Punkte genau ein Polynom vom Grad <b>k − 1</b>. shardkey wählt ein zufälliges Polynom, dessen Wert bei <b>x = 0</b> dein Geheimnis ist. Die Shares sind Punkte auf dieser Kurve.',
+    expl2: 'Mit k Punkten ist das Polynom eindeutig bestimmt – und damit sein Wert bei x = 0. Probiere es aus: Ziehe die Punkte, das Geheimnis (gelb) wandert mit.',
+    polyLess: 'Nur k−1 Punkte bekannt', polyRand: 'Mischen',
+    polyRead: 'Geheimnis p(0) = {v}. Diese {k} Punkte legen genau eine Kurve fest.',
+    polyReadOff: 'Geheimnis p(0) = {v} (außerhalb des Bildausschnitts). Diese {k} Punkte legen genau eine Kurve fest.',
+    polyReadLess: 'Nur {m} Punkt(e) bekannt: Zu <i>jedem</i> möglichen Geheimnis (gelbe Marken) gibt es eine passende Kurve. Wer k−1 Shares hat, weiß nichts.',
+    polyAxis: 'x = 0 · Geheimnis', polyShare: 'Share {x}',
+    expl3: 'Mit nur <b>k − 1</b> Punkten passen unendlich viele Kurven – zu jedem denkbaren Geheimnis genau eine. Deshalb verraten k − 1 Shares <i>mathematisch nichts</i> (nicht bloß „schwer zu erraten“).',
+    expl4: 'Die Grafik rechnet der Anschaulichkeit halber mit reellen Zahlen. shardkey rechnet byteweise im endlichen Körper GF(256); so ist jeder Share genauso groß wie das Geheimnis und es gibt keine Rundungsfehler.',
+    footSafe: '<b>Für echte Geheimnisse:</b> Speichere diese Seite als Datei und öffne sie offline. Shares getrennt aufbewahren. Kein Schutz auf einem kompromittierten Gerät.',
+    footCredits: 'MIT-Lizenz · QR: qrcode-generator (MIT), jsQR (Apache-2.0) ·',
+  },
+  en: {
+    skip: 'Skip to content',
+    hosted: 'You are using the hosted copy. For real secrets, download this page and open it locally, offline.',
+    hostedDl: 'Download index.html',
+    tagline: 'Split a secret into QR codes. Any k of n bring it back.',
+    offline: '100% offline', offlineTip: 'No network access: blocked technically by the Content-Security-Policy.',
+    tabSplit: 'Split', tabRecover: 'Restore',
+    lblSource: 'What do you want to protect?', srcText: 'Text', srcFile: 'File',
+    phSecret: 'Password, recovery seed, note ...', lblFile: 'Choose a file or drop it here',
+    lblLabel: 'Label (optional)', phLabel: 'e.g. Emergency password',
+    labelHint: 'Printed in plain text on every card – do not put anything secret in it.',
+    lblN: 'Total shares (n)', lblK: 'Needed to restore (k)',
+    knHint: 'Any {k} of {n} shares restore the secret. {k1} or fewer reveal nothing, mathematically.',
+    advanced: 'Advanced', forceAes: 'Always encrypt with AES-256-GCM',
+    forceAesHint: 'Default: small secrets are split directly, large ones are encrypted automatically (only the key is split).',
+    btnGenerate: 'Create shares', working: 'Working …',
+    outTitle: 'Your shares',
+    outDirect: '{n} shares created, {k} needed. Each share holds a piece of the secret itself.',
+    outAes: '{n} shares created, {k} needed. The secret is encrypted with AES-256-GCM; the shares only hold the key.',
+    outEmbedded: ' The ciphertext is embedded in every share.',
+    outSep: ' The ciphertext is in a separate file (see below).',
+    ctTitle: 'Ciphertext file',
+    ctText: 'The encrypted content is too large for a QR code. Keep this file safe (it is useless without {k} shares, so cloud or USB stick are fine). To restore you need it plus {k} shares.',
+    ctDl: 'Download ciphertext (.shkc)',
+    btnPrint: 'Print (one card per page)', btnPngAll: 'All as PNG', btnCopyAll: 'Copy all texts', btnClear: 'Clear everything',
+    btnCopy: 'Copy text', btnPng: 'PNG', copied: 'Copied', pngStarted: 'PNG download started',
+    cardShare: 'Share {x} of {n}', cardNeed: '{k} needed', cardSet: 'Set {id}',
+    cardHow: 'To restore: open shardkey → “Restore” → scan this QR code or type the text. Keep the shares in separate places.',
+    cardAes: 'This set additionally needs the ciphertext file (.shkc).',
+    errEmpty: 'Please enter a secret.', errNoFile: 'Please choose a file.', errTooLarge: 'The file is too large (max. {max} MB).',
+    errSplit: 'Splitting failed: {msg}',
+    progNone: 'No share collected yet. Scan a QR code, upload an image or paste the text.',
+    progHave: '{have} of {k} shares collected', progMore: '{more} more needed', progSet: 'Set {id} · n = {n}',
+    progDone: 'Enough shares – secret restored.',
+    btnCam: 'Scan with camera', btnCamStop: 'Stop camera', btnImg: 'Upload image',
+    lblPaste: 'Paste share text', btnAddText: 'Add',
+    camUnsupported: 'Camera unavailable (browser or insecure context). Use image upload or text.',
+    camDenied: 'No camera access (denied or no camera found).',
+    msgAdded: 'Share {x} added.', msgDup: 'Share {x} was already collected.',
+    noShares: 'No share text found (shares start with “SHK1-”).',
+    noQr: 'No QR code found in “{name}”.',
+    imgFail: '“{name}” could not be read as an image.',
+    prefix: 'Entry {i}: ',
+    err_BAD_PREFIX: 'This is not a shardkey share (it should start with “SHK1-”).',
+    err_UNSUPPORTED_VERSION: 'This share has format version {version}; this page only understands version 1.',
+    err_BAD_ENCODING: 'Invalid character “{char}” at position {pos} – typo?',
+    err_TRUNCATED: 'The share text is incomplete or cut off.',
+    err_BAD_CHECKSUM: 'Checksum mismatch – typo or scan error. Please scan again or check the text.',
+    err_BAD_HEADER: 'The share is damaged (invalid header).',
+    err_MIXED_SETS: 'This share belongs to a different set ({b}) than the ones already collected ({a}) and was not added.',
+    err_INCONSISTENT: 'This share does not fit the others of its set (different parameters).',
+    err_DUPLICATE_INDEX: 'There are two different versions of share {x} – one of them is damaged.',
+    err_CT_MISMATCH: 'This ciphertext file belongs to set {b}, but set {a} is needed.',
+    err_BAD_CT_FILE: 'This is not a valid ciphertext file (.shkc) or it is damaged.',
+    err_DECRYPT_FAILED: 'Decryption failed: the shares do not belong together or the ciphertext file is damaged.',
+    err_VERIFY_FAILED: 'The restored secret does not match its hash: at least one share is wrong. Remove suspicious shares or scan them again.',
+    err_NEED_CIPHERTEXT: 'The ciphertext file is missing.',
+    err_TOO_FEW: 'Too few shares.',
+    err_UNKNOWN: 'Unexpected error: {msg}',
+    ctNeedTitle: 'Ciphertext file needed',
+    ctNeedText: 'This set stores larger data encrypted. Choose the matching .shkc file.',
+    ctLoaded: 'Ciphertext loaded: {name}', ctPick: 'Choose ciphertext file',
+    resOk: 'Restored and verified', resOkHint: 'The hash of the original matches.',
+    reveal: 'Reveal', hide: 'Hide', copySecret: 'Copy', fileDl: 'Download file', resFileInfo: '{name} · {size}',
+    resetRec: 'Start over', shareChip: 'Share {x}', remove: 'Remove',
+    explTitle: 'How does it work? (Shamir’s Secret Sharing)',
+    expl1: 'Two points define exactly one line, three points exactly one parabola, <b>k</b> points exactly one polynomial of degree <b>k − 1</b>. shardkey picks a random polynomial whose value at <b>x = 0</b> is your secret. The shares are points on that curve.',
+    expl2: 'With k points the polynomial is fixed – and so is its value at x = 0. Try it: drag the points and the secret (yellow) moves with them.',
+    polyLess: 'Only k−1 points known', polyRand: 'Shuffle',
+    polyRead: 'Secret p(0) = {v}. These {k} points fix exactly one curve.',
+    polyReadOff: 'Secret p(0) = {v} (off the chart). These {k} points fix exactly one curve.',
+    polyReadLess: 'Only {m} point(s) known: <i>every</i> possible secret (yellow marks) has a matching curve. Holding k−1 shares tells you nothing.',
+    polyAxis: 'x = 0 · secret', polyShare: 'Share {x}',
+    expl3: 'With only <b>k − 1</b> points, infinitely many curves fit – exactly one for every conceivable secret. That is why k − 1 shares reveal <i>mathematically nothing</i> (not merely “hard to guess”).',
+    expl4: 'The chart uses real numbers for clarity. shardkey works byte by byte in the finite field GF(256), so every share is exactly as large as the secret and there are no rounding errors.',
+    footSafe: '<b>For real secrets:</b> save this page as a file and open it offline. Store shares in separate places. No protection on a compromised device.',
+    footCredits: 'MIT licensed · QR: qrcode-generator (MIT), jsQR (Apache-2.0) ·',
+  },
+};
+const qsLang = new URLSearchParams(location.search).get('lang');
+let lang = qsLang === 'de' || qsLang === 'en' ? qsLang : /^de\b/i.test(navigator.language || '') ? 'de' : 'en';
+const t = (key, p) => String(T[lang][key] ?? T.en[key] ?? key).replace(/\{(\w+)\}/g, (m, n) => (p && p[n] != null ? p[n] : m));
+const errText = (e) => {
+  if (e && e.name === 'ShardkeyError' && T.en['err_' + e.code]) return t('err_' + e.code, e.params);
+  return t('err_UNKNOWN', { msg: (e && e.message) || String(e) });
+};
+
+/* ---------------------------------------------------------------- helpers */
+const fmtSize = (b) => (b < 1024 ? `${b} B` : b < 1048576 ? `${(b / 1024).toFixed(1)} KB` : `${(b / 1048576).toFixed(1)} MB`);
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const slug = (s) => (s || '').normalize('NFKD').replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40).toLowerCase();
+const groups = (text) => { const m = /^(SHK\d+-)(.*)$/.exec(text); return m[1] + ' ' + m[2].replace(/(.{5})/g, '$1 ').trim(); };
+const setLabel = (hex) => hex.slice(0, 6) + '-' + hex.slice(6);
+
+function download(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name; a.rel = 'noopener';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 15000);
+}
+let toastTimer;
+function toast(msg) {
+  const e = $('#toast'); e.textContent = msg; e.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { e.hidden = true; }, 1800);
+}
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); }
+  catch (e) {
+    const ta = el('textarea'); ta.value = text; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } finally { ta.remove(); }
+  }
+  toast(t('copied'));
+}
+
+/* ------------------------------------------------------------- QR drawing */
+function qrMatrix(text) {
+  const q = qrcode(0, 'M');                 // type number 0 = smallest version that fits, error correction M
+  q.addData(text, 'Alphanumeric');          // share texts are upper-case Base32 + '-', i.e. QR alphanumeric mode
+  q.make();
+  const count = q.getModuleCount();
+  return { count, dark: (r, c) => q.isDark(r, c) };
+}
+function qrSvg(text) {
+  const { count, dark } = qrMatrix(text), m = 4, size = count + 2 * m;   // 4-module quiet zone
+  let d = '';
+  for (let r = 0; r < count; r++) {
+    let run = -1;
+    for (let c = 0; c <= count; c++) {
+      const on = c < count && dark(r, c);
+      if (on && run < 0) run = c;
+      else if (!on && run >= 0) { d += `M${run + m} ${r + m}h${c - run}v1h${run - c}z`; run = -1; }
+    }
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" shape-rendering="crispEdges" role="img" aria-label="QR code"><rect width="${size}" height="${size}" fill="#fff"/><path d="${d}" fill="#000"/></svg>`;
+}
+
+/* ------------------------------------------------------------------ split */
+const S = { out: null };
+const nRange = $('#nRange'), kRange = $('#kRange');
+
+function updateKN() {
+  const n = +nRange.value;
+  kRange.max = n;
+  if (+kRange.value > n) kRange.value = n;
+  const k = +kRange.value;
+  $('#nOut').textContent = n; $('#kOut').textContent = k;
+  $('#knHint').textContent = t('knHint', { k, n, k1: k - 1 });
+}
+const srcKind = () => $('input[name=src]:checked').value;
+function updateSrc() {
+  const file = srcKind() === 'file';
+  $('#srcTextBox').hidden = file; $('#srcFileBox').hidden = !file;
+}
+function updateDropText() {
+  const f = $('#secretFile').files[0];
+  const d = $('#dropText'); d.textContent = '';
+  if (!f) { d.textContent = t('lblFile'); return; }
+  d.appendChild(el('strong', null, f.name)); d.appendChild(el('span', 'mut', fmtSize(f.size)));
+}
+function splitError(key, p) { const e = $('#splitErr'); e.textContent = key ? t(key, p) : ''; e.hidden = !key; }
+
+async function generate(ev) {
+  ev.preventDefault();
+  splitError(null);
+  const kind = srcKind(), k = +kRange.value, n = +nRange.value;
+  let data, name;
+  if (kind === 'text') {
+    const s = $('#secretText').value;
+    if (!s) return splitError('errEmpty');
+    data = SHK.utf8enc(s);
+  } else {
+    const f = $('#secretFile').files[0];
+    if (!f) return splitError('errNoFile');
+    if (f.size > MAX_FILE) return splitError('errTooLarge', { max: MAX_FILE / 1048576 });
+    data = new Uint8Array(await f.arrayBuffer()); name = f.name;
+  }
+  const btn = $('#btnGenerate'); btn.disabled = true; btn.textContent = t('working');
+  try {
+    const res = await SHK.split({ data, kind, name, k, n, mode: $('#forceAes').checked ? 'aes' : 'auto' });
+    S.out = { res, label: $('#label').value.trim(), date: today() };
+    renderOutput();
+    $('#split-output').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (e) {
+    splitError('errSplit', { msg: errText(e) });
+  } finally {
+    btn.disabled = false; btn.textContent = t('btnGenerate');
+  }
+}
+
+function cardInfo(share) {
+  const { res, label, date } = S.out;
+  return {
+    brand: 'shardkey', label,
+    title: t('cardShare', { x: share.index, n: res.n }), need: t('cardNeed', { k: res.k }),
+    set: t('cardSet', { id: setLabel(res.setId) }),
+    meta: `${date} · ${t('cardHow')}` + (res.ciphertextFile ? ' ' + t('cardAes') : ''),
+    text: groups(share.text),
+  };
+}
+
+function renderOutput() {
+  const out = S.out;
+  if (!out) { $('#split-output').hidden = true; return; }
+  const { res } = out;
+  $('#split-output').hidden = false;
+  $('#outSummary').textContent = t(res.mode === 'direct' ? 'outDirect' : 'outAes', { n: res.n, k: res.k })
+    + (res.mode === 'aes' ? t(res.embedded ? 'outEmbedded' : 'outSep') : '');
+  $('#ctBox').hidden = !res.ciphertextFile;
+  if (res.ciphertextFile) {
+    $('#ctText').textContent = t('ctText', { k: res.k });
+    $('#btnCt').textContent = `${t('ctDl')} · ${fmtSize(res.ciphertextFile.length)}`;
+  }
+  const box = $('#cards'); box.textContent = '';
+  for (const share of res.shares) {
+    const i = cardInfo(share);
+    const card = el('article', 'share-card'); card.dataset.index = share.index;
+    const top = el('div', 'sc-top'); top.append(el('b', null, i.brand), el('span', null, i.set));
+    card.append(top);
+    if (i.label) card.append(el('h3', 'sc-label', i.label));
+    const cnt = el('p', 'sc-count'); cnt.append(el('b', null, i.title), document.createTextNode(' · ' + i.need));
+    const qr = el('div', 'sc-qr'); qr.innerHTML = qrSvg(share.text);          // markup is generated by us from numbers only
+    card.append(cnt, qr, el('p', 'sc-text', i.text), el('p', 'sc-meta', i.meta));
+    const act = el('div', 'sc-actions no-print');
+    const bc = el('button', 'btn', t('btnCopy')); bc.type = 'button'; bc.dataset.act = 'copy';
+    const bp = el('button', 'btn', t('btnPng')); bp.type = 'button'; bp.dataset.act = 'png';
+    act.append(bc, bp); card.append(act);
+    box.append(card);
+  }
+}
+
+/* PNG export: draw the card onto a canvas (QR is drawn from the module matrix, pixel-exact) */
+const SERIF = '"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif';
+const MONO = 'ui-monospace,"Cascadia Code","SF Mono",Menlo,Consolas,monospace';
+function wrapLines(ctx, text, maxW) {
+  const words = text.split(' '), lines = []; let cur = '';
+  for (const w of words) {
+    const test = cur ? cur + ' ' + w : w;
+    if (ctx.measureText(test).width > maxW && cur) { lines.push(cur); cur = w; } else cur = test;
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+function cardCanvas(share) {
+  const i = cardInfo(share), W = 1100, P = 70, inner = W - 2 * P;
+  const m = qrMatrix(share.text), mod = Math.floor(inner / (m.count + 8)), qrPx = mod * (m.count + 8);
+  const paint = (ctx, draw) => {
+    let y = P;
+    const text = (str, font, color, x, align) => { ctx.font = font; ctx.fillStyle = color; ctx.textAlign = align || 'left'; if (draw) ctx.fillText(str, x, y); };
+    ctx.textBaseline = 'alphabetic';
+    y += 30; text(i.brand, `italic 600 44px ${SERIF}`, '#14151a', P); text(i.set, `600 24px ${MONO}`, '#5b5e66', W - P, 'right');
+    y += 24;
+    if (i.label) {
+      ctx.font = `600 56px ${SERIF}`;
+      for (const l of wrapLines(ctx, i.label, inner)) { y += 62; text(l, `600 56px ${SERIF}`, '#14151a', P); }
+      y += 10;
+    }
+    y += 54; text(`${i.title} · ${i.need}`, `600 38px ${MONO}`, '#14151a', P);
+    y += 36;
+    if (draw) { ctx.fillStyle = '#fff'; ctx.fillRect(P, y, inner, qrPx); ctx.fillStyle = '#000'; }
+    const ox = Math.round(P + (inner - qrPx) / 2) + 4 * mod, oy = y + 4 * mod;   // whole pixels only: no anti-aliased seams between modules
+    if (draw) for (let r = 0; r < m.count; r++) for (let c = 0; c < m.count; c++) if (m.dark(r, c)) ctx.fillRect(ox + c * mod, oy + r * mod, mod, mod);
+    y += qrPx + 24;
+    ctx.font = `24px ${MONO}`;
+    for (const l of wrapLines(ctx, i.text, inner)) { y += 33; text(l, `24px ${MONO}`, '#2b2d34', P); }
+    y += 18;
+    ctx.font = `22px ${SERIF}`;
+    for (const l of wrapLines(ctx, i.meta, inner)) { y += 31; text(l, `22px ${SERIF}`, '#5b5e66', P); }
+    return y + P;
+  };
+  const probe = document.createElement('canvas').getContext('2d');
+  const H = paint(probe, false);
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#f3f0e8'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#c9f53a'; ctx.fillRect(0, 0, W, 14);
+  paint(ctx, true);
+  return cv;
+}
+const pngName = (share) => `shardkey${S.out.label ? '-' + slug(S.out.label) : ''}-share-${share.index}-of-${S.out.res.n}.png`;
+const canvasBlob = (cv) => new Promise((res) => cv.toBlob(res, 'image/png'));
+async function downloadPng(share) { download(await canvasBlob(cardCanvas(share)), pngName(share)); }
+async function downloadAllPng() {
+  for (const share of S.out.res.shares) { await downloadPng(share); await new Promise((r) => setTimeout(r, 300)); }
+  toast(t('pngStarted'));
+}
+
+function clearAll() {
+  S.out = null;
+  $('#secretText').value = ''; $('#label').value = ''; $('#secretFile').value = '';
+  updateDropText(); splitError(null);
+  $('#cards').textContent = ''; $('#split-output').hidden = true;
+}
+
+/* ---------------------------------------------------------------- recover */
+const R = { shares: [], ct: null, result: null, text: '', revealed: false, seq: 0, msgs: [] };
+
+function pushMsg(type, text) {
+  R.msgs.push({ type, text, id: Math.random() });
+  if (R.msgs.length > 4) R.msgs.shift();
+  renderMsgs();
+}
+function renderMsgs() {
+  const ul = $('#msgs'); ul.textContent = '';
+  for (const m of R.msgs) {
+    const li = el('li', m.type); li.append(el('span', null, m.text));
+    const x = el('button', null, '×'); x.type = 'button'; x.setAttribute('aria-label', t('remove'));
+    x.addEventListener('click', () => { R.msgs = R.msgs.filter((q) => q !== m); renderMsgs(); });
+    li.append(x); ul.append(li);
+  }
+}
+
+function addRaw(raw, source) {
+  const parts = SHK.extractShares(raw);
+  if (!parts.length) { pushMsg('err', t('noShares')); return 0; }
+  let added = 0;
+  parts.forEach((part, idx) => {
+    const pre = parts.length > 1 ? t('prefix', { i: idx + 1 }) : '';
+    try {
+      const s = SHK.parseShare(part);
+      if (SHK.addShare(R.shares, s) === 'added') { added++; pushMsg('ok', t('msgAdded', { x: s.x })); }
+      else if (source !== 'cam') pushMsg('info', t('msgDup', { x: s.x }));
+    } catch (e) { pushMsg('err', pre + errText(e)); }
+  });
+  renderRecover();
+  if (added) tryRecover();
+  return added;
+}
+
+function renderRecover() {
+  const sh = R.shares.slice().sort((a, b) => a.x - b.x), f = sh[0];
+  const cnt = $('#progCount'); cnt.textContent = '';
+  cnt.append(document.createTextNode(String(sh.length)));
+  if (f) cnt.append(el('small', null, ' / ' + f.k));
+  let txt = t('progNone');
+  if (f) {
+    txt = t('progHave', { have: sh.length, k: f.k });
+    if (R.result) txt += ' · ' + t('progDone');
+    else if (sh.length < f.k) txt += ' · ' + t('progMore', { more: f.k - sh.length });
+    txt += '\n' + t('progSet', { id: setLabel(f.setIdHex), n: f.n });
+  }
+  const p = $('#progText'); p.textContent = txt;
+  const pips = $('#pips'); pips.textContent = '';
+  if (f) for (let x = 1; x <= f.n; x++) { const e = el('span', 'pip' + (sh.some((s) => s.x === x) ? ' on' : ''), String(x)); pips.append(e); }
+  const list = $('#shareList'); list.textContent = '';
+  for (const s of sh) {
+    const li = el('li', null, t('shareChip', { x: s.x }));
+    const b = el('button', null, '×'); b.type = 'button'; b.title = t('remove'); b.setAttribute('aria-label', `${t('remove')} ${t('shareChip', { x: s.x })}`);
+    b.addEventListener('click', () => { R.shares = R.shares.filter((q) => q !== s); renderRecover(); tryRecover(); });
+    li.append(b); list.append(li);
+  }
+  const needCt = !!f && f.aes && !f.embedded;
+  $('#ctNeed').hidden = !needCt;
+  $('#ctNeedText').textContent = R.ct ? t('ctLoaded', { name: R.ct.name }) : t('ctNeedText');
+  renderResult();
+}
+
+function renderResult() {
+  const r = R.result;
+  $('#result').hidden = !r;
+  if (!r) return;
+  $('#resText').hidden = r.kind !== 'text';
+  $('#resFile').hidden = r.kind !== 'file';
+  const out = $('#secretOut');
+  out.className = 'secret-out' + (R.revealed ? '' : ' masked');
+  out.textContent = r.kind === 'text' ? (R.revealed ? R.text : '••••••••••••') : '';
+  $('#btnReveal').textContent = t(R.revealed ? 'hide' : 'reveal');
+  $('#btnReveal').setAttribute('aria-pressed', String(R.revealed));
+  if (r.kind === 'file') $('#resFileInfo').textContent = t('resFileInfo', { name: r.name, size: fmtSize(r.data.length) });
+}
+
+async function tryRecover() {
+  const my = ++R.seq, sh = R.shares, f = sh[0];
+  const clear = () => { R.result = null; R.text = ''; R.revealed = false; renderRecover(); };
+  if (!f || sh.length < f.k || (f.aes && !f.embedded && !R.ct)) return clear();
+  try {
+    const r = await SHK.recover(sh, R.ct && R.ct.bytes);
+    if (my !== R.seq) return;
+    R.result = r; R.revealed = false;
+    R.text = r.kind === 'text' ? SHK.utf8dec(r.data) : '';
+    stopCam(); renderRecover();
+    $('#result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  } catch (e) {
+    if (my !== R.seq) return;
+    if (e.code === 'CT_MISMATCH' || e.code === 'BAD_CT_FILE') R.ct = null;
+    clear(); pushMsg('err', errText(e));
+  }
+}
+
+function resetRecover() {
+  stopCam();
+  R.seq++; R.shares = []; R.ct = null; R.result = null; R.text = ''; R.revealed = false; R.msgs = [];
+  $('#pasteBox').value = ''; $('#ctFile').value = ''; $('#imgFiles').value = '';
+  renderMsgs(); renderRecover();
+}
+
+/* --- QR detection: BarcodeDetector first, jsQR as fallback --- */
+let detector;
+async function getDetector() {
+  if (detector !== undefined) return detector;
+  detector = null;
+  if ('BarcodeDetector' in globalThis) {
+    try { if ((await BarcodeDetector.getSupportedFormats()).includes('qr_code')) detector = new BarcodeDetector({ formats: ['qr_code'] }); } catch (e) { detector = null; }
+  }
+  return detector;
+}
+async function detectIn(source, ctx, w, h) {
+  const det = await getDetector();
+  if (det) { try { const r = await det.detect(source); if (r.length) return r.map((x) => x.rawValue); } catch (e) { /* fall through to jsQR */ } }
+  const id = ctx.getImageData(0, 0, w, h);
+  const q = jsQR(id.data, w, h, { inversionAttempts: 'attemptBoth' });
+  return q ? [q.data] : [];
+}
+async function decodeImageFile(file) {
+  let bmp;
+  try { bmp = await createImageBitmap(file); } catch (e) { return null; }
+  try {
+    for (const sc of [1, 0.5, 0.3]) {                           // big photos often decode better when downscaled
+      const f = Math.min(1, 2400 / Math.max(bmp.width, bmp.height)) * sc;
+      const w = Math.max(1, Math.round(bmp.width * f)), h = Math.max(1, Math.round(bmp.height * f));
+      const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+      const ctx = cv.getContext('2d', { willReadFrequently: true });
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h); ctx.drawImage(bmp, 0, 0, w, h);
+      const found = await detectIn(cv, ctx, w, h);
+      if (found.length) return found;
+    }
+    return [];
+  } finally { if (bmp.close) bmp.close(); }
+}
+async function handleImages(files) {
+  for (const file of files) {
+    const found = await decodeImageFile(file);
+    if (found === null) pushMsg('err', t('imgFail', { name: file.name }));
+    else if (!found.length) pushMsg('err', t('noQr', { name: file.name }));
+    else for (const text of found) addRaw(text, 'img');
+  }
+}
+
+/* --- camera --- */
+const cam = { stream: null, timer: 0, last: '', lastAt: 0, scratch: null };
+async function startCam() {
+  if (cam.stream) return;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return pushMsg('err', t('camUnsupported'));
+  try {
+    cam.stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } } });
+  } catch (e) { cam.stream = null; return pushMsg('err', t('camDenied')); }
+  const v = $('#camVideo'); v.srcObject = cam.stream;
+  try { await v.play(); } catch (e) { /* autoplay quirks: the loop below waits for frames */ }
+  $('#camBox').hidden = false; $('#btnCam').hidden = true;
+  await getDetector();
+  scanTick();
+}
+function stopCam() {
+  clearTimeout(cam.timer);
+  if (cam.stream) cam.stream.getTracks().forEach((tr) => tr.stop());
+  cam.stream = null;
+  const v = $('#camVideo'); v.srcObject = null;
+  $('#camBox').hidden = true; $('#btnCam').hidden = false;
+}
+async function scanTick() {
+  if (!cam.stream) return;
+  const v = $('#camVideo');
+  try {
+    if (v.readyState >= 2 && v.videoWidth) {
+      let found = [];
+      const scale = Math.min(1, 1024 / v.videoWidth), w = Math.round(v.videoWidth * scale), h = Math.round(v.videoHeight * scale);
+      if (!cam.scratch) cam.scratch = document.createElement('canvas');
+      cam.scratch.width = w; cam.scratch.height = h;
+      const ctx = cam.scratch.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(v, 0, 0, w, h);
+      found = await detectIn(detector ? v : cam.scratch, ctx, w, h);
+      for (const text of found) {
+        const now = Date.now();
+        if (text === cam.last && now - cam.lastAt < 2500) { cam.lastAt = now; continue; }   // same code still in view
+        cam.last = text; cam.lastAt = now;
+        const box = $('#camBox'); box.classList.add('hit'); setTimeout(() => box.classList.remove('hit'), 350);
+        if (addRaw(text, 'cam') && navigator.vibrate) navigator.vibrate(60);
+      }
+    }
+  } catch (e) { /* a dropped frame is fine */ }
+  if (cam.stream) cam.timer = setTimeout(scanTick, 150);
+}
+
+/* ------------------------------------------------------------ explainer */
+function initPoly() {
+  const NS = 'http://www.w3.org/2000/svg', svg = $('#polysvg');
+  const X0 = 46, X1 = 540, Y0 = 18, Y1 = 262, XMIN = -0.6, XMAX = 6.2, YMIN = -2, YMAX = 12;
+  const sx = (x) => X0 + ((x - XMIN) / (XMAX - XMIN)) * (X1 - X0);
+  const sy = (y) => Y1 - ((y - YMIN) / (YMAX - YMIN)) * (Y1 - Y0);
+  const BASE = [5.5, 3.8, 4.2, 7.5, 9];       // chosen so the secret p(0) lands inside the chart for k = 2..5
+  const ys = BASE.slice();
+  const CAND = [0.5, 3, 5.5, 8, 10.5];
+  let k = 3, less = false, curves = [], marks = [], dots = [], labels = [];
+  const mk = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const a in attrs) e.setAttribute(a, attrs[a]); (parent || svg).appendChild(e); return e; };
+  const lag = (pts, x) => pts.reduce((s, p, i) => s + p[1] * pts.reduce((q, r, j) => (i === j ? q : q * (x - r[0]) / (p[0] - r[0])), 1), 0);
+
+  function build() {
+    svg.textContent = '';
+    const cp = mk('clipPath', { id: 'polyclip' }); mk('rect', { x: X0, y: Y0, width: X1 - X0, height: Y1 - Y0 }, cp);
+    for (let x = 1; x <= 6; x++) mk('line', { class: 'grid', x1: sx(x), x2: sx(x), y1: Y0, y2: Y1 });
+    mk('line', { class: 'axis', x1: sx(0), x2: sx(0), y1: Y0, y2: Y1 });
+    mk('line', { class: 'axis', x1: X0, x2: X1, y1: sy(0), y2: sy(0) });
+    const ax = mk('text', { x: sx(0) + 6, y: Y1 - 6 }); ax.textContent = t('polyAxis');
+    labels = [];
+    for (let x = 1; x <= k; x++) { const l = mk('text', { x: sx(x), y: Y1 + 16, 'text-anchor': 'middle' }); l.textContent = t('polyShare', { x }); labels.push(l); }
+    const g = mk('g', { 'clip-path': 'url(#polyclip)' });
+    curves = []; marks = [];
+    const nc = less ? CAND.length : 1;
+    for (let i = 0; i < nc; i++) {
+      const c = mk('path', { class: 'curve' + (less ? ' ghost' : ''), opacity: less ? 0.35 + 0.1 * i : 1 }, g); curves.push(c);
+    }
+    for (let i = 0; i < nc; i++) marks.push(mk('circle', { class: 'sec' + (less ? ' ghost' : ''), r: less ? 5 : 7 }));
+    dots = [];
+    const nd = less ? k - 1 : k;
+    for (let i = 0; i < nd; i++) {
+      const d = mk('circle', { class: 'pt', r: 9, tabindex: 0, role: 'slider', 'aria-label': t('polyShare', { x: i + 1 }), 'aria-valuemin': 0, 'aria-valuemax': 10 });
+      d.addEventListener('pointerdown', (ev) => { d.setPointerCapture(ev.pointerId); d.dataset.drag = '1'; });
+      d.addEventListener('pointerup', () => { delete d.dataset.drag; });
+      d.addEventListener('pointermove', (ev) => {
+        if (!d.dataset.drag) return;
+        const r = svg.getBoundingClientRect(), py = (ev.clientY - r.top) * (290 / r.height);
+        ys[i] = Math.max(0, Math.min(10, YMIN + ((Y1 - py) / (Y1 - Y0)) * (YMAX - YMIN)));
+        update();
+      });
+      d.addEventListener('keydown', (ev) => {
+        const dy = ev.key === 'ArrowUp' ? 0.25 : ev.key === 'ArrowDown' ? -0.25 : 0;
+        if (!dy) return; ev.preventDefault(); ys[i] = Math.max(0, Math.min(10, ys[i] + dy)); update();
+      });
+      dots.push(d);
+    }
+    update();
+  }
+  function path(pts) {
+    let d = '';
+    for (let x = XMIN; x <= XMAX + 1e-9; x += 0.05) d += (d ? 'L' : 'M') + sx(x).toFixed(1) + ' ' + sy(lag(pts, x)).toFixed(1);
+    return d;
+  }
+  function update() {
+    const known = [];
+    for (let i = 0; i < (less ? k - 1 : k); i++) known.push([i + 1, ys[i]]);
+    dots.forEach((d, i) => { d.setAttribute('cx', sx(i + 1)); d.setAttribute('cy', sy(ys[i])); d.setAttribute('aria-valuenow', ys[i].toFixed(1)); });
+    const read = $('#polyRead');
+    if (less) {
+      CAND.forEach((c, i) => {
+        curves[i].setAttribute('d', path([[0, c], ...known]));
+        marks[i].setAttribute('cx', sx(0)); marks[i].setAttribute('cy', sy(c));
+      });
+      read.innerHTML = t('polyReadLess', { m: k - 1 });
+    } else {
+      curves[0].setAttribute('d', path(known));
+      const s = lag(known, 0), off = s < YMIN || s > YMAX;
+      marks[0].setAttribute('cx', sx(0)); marks[0].setAttribute('cy', sy(Math.max(YMIN, Math.min(YMAX, s))));
+      read.textContent = t(off ? 'polyReadOff' : 'polyRead', { v: s.toFixed(1), k });
+    }
+  }
+  $('#pk').addEventListener('input', (e) => { k = +e.target.value; $('#pkOut').textContent = k; build(); });
+  $('#pless').addEventListener('change', (e) => { less = e.target.checked; build(); });
+  $('#prand').addEventListener('click', () => { for (let i = 0; i < ys.length; i++) ys[i] = Math.max(0.5, Math.min(9.5, BASE[i] + (Math.random() - 0.5) * 2.4)); update(); });   // illustration only: not security relevant
+  build();
+  return build;       // re-render texts after a language switch
+}
+
+/* ---------------------------------------------------------------- wiring */
+let rebuildPoly = () => {};
+function applyI18n() {
+  document.documentElement.lang = lang;
+  $$('[data-i18n]').forEach((e) => { e.textContent = t(e.dataset.i18n); });
+  $$('[data-i18n-html]').forEach((e) => { e.innerHTML = t(e.dataset.i18nHtml); });      // static strings from this file only
+  $$('[data-i18n-ph]').forEach((e) => { e.placeholder = t(e.dataset.i18nPh); });
+  $$('[data-i18n-title]').forEach((e) => { e.title = t(e.dataset.i18nTitle); });
+  $('#langBtn').textContent = lang === 'de' ? 'EN' : 'DE';
+  document.title = 'shardkey · ' + t('tagline');
+  updateKN(); updateDropText(); renderOutput(); renderRecover(); renderMsgs(); rebuildPoly();
+  const b = $('#btnGenerate'); if (!b.disabled) b.textContent = t('btnGenerate');
+}
+
+function showTab(name) {
+  const split = name === 'split';
+  $('#panel-split').hidden = !split; $('#panel-recover').hidden = split;
+  for (const [id, on] of [['tab-split', split], ['tab-recover', !split]]) {
+    const b = $('#' + id); b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1;
+  }
+  if (split) stopCam();
+}
+
+function init() {
+  $('#langBtn').addEventListener('click', () => { lang = lang === 'de' ? 'en' : 'de'; applyI18n(); });
+  const tabs = ['split', 'recover'];
+  tabs.forEach((n, i) => {
+    const b = $('#tab-' + n);
+    b.addEventListener('click', () => showTab(n));
+    b.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      const to = tabs[(i + 1) % 2]; showTab(to); $('#tab-' + to).focus();
+    });
+  });
+  if (/^https?:$/.test(location.protocol)) {            // hosted copy: nudge towards the offline file
+    $('#hostedBanner').hidden = false;
+    $('#hostedDl').href = location.origin + location.pathname;
+  }
+  nRange.addEventListener('input', updateKN); kRange.addEventListener('input', updateKN);
+  $$('input[name=src]').forEach((r) => r.addEventListener('change', updateSrc));
+  $('#secretFile').addEventListener('change', updateDropText);
+  const drop = $('#drop');
+  ['dragenter', 'dragover'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('over'); }));
+  drop.addEventListener('drop', (e) => { if (e.dataTransfer.files.length) { $('#secretFile').files = e.dataTransfer.files; updateDropText(); } });
+  $('#split-form').addEventListener('submit', generate);
+  $('#btnPrint').addEventListener('click', () => window.print());
+  $('#btnPngAll').addEventListener('click', downloadAllPng);
+  $('#btnCopyAll').addEventListener('click', () => copyText(S.out.res.shares.map((s) => s.text).join('\n')));
+  $('#btnClear').addEventListener('click', clearAll);
+  $('#btnCt').addEventListener('click', () => {
+    const { res } = S.out;
+    download(new Blob([res.ciphertextFile], { type: 'application/octet-stream' }), `shardkey-${res.setId}.shkc`);
+  });
+  $('#cards').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-act]'); if (!b) return;
+    const share = S.out.res.shares[+b.closest('.share-card').dataset.index - 1];
+    if (b.dataset.act === 'copy') copyText(share.text); else downloadPng(share);
+  });
+
+  $('#btnCam').addEventListener('click', startCam);
+  $('#btnCamStop').addEventListener('click', stopCam);
+  $('#imgFiles').addEventListener('change', async (e) => { const files = Array.from(e.target.files); e.target.value = ''; await handleImages(files); });
+  const paste = $('#pasteBox');
+  const takePaste = () => { if (paste.value.trim() && addRaw(paste.value, 'text')) paste.value = ''; else if (!paste.value.trim()) pushMsg('err', t('noShares')); };
+  $('#btnAddText').addEventListener('click', takePaste);
+  paste.addEventListener('paste', () => setTimeout(() => { if (paste.value.trim()) addRaw(paste.value, 'text') && (paste.value = ''); }, 0));
+  $('#ctFile').addEventListener('change', async (e) => {
+    const f = e.target.files[0]; e.target.value = '';
+    if (!f) return;
+    R.ct = { name: f.name, bytes: new Uint8Array(await f.arrayBuffer()) };
+    renderRecover(); tryRecover();
+  });
+  $('#btnReveal').addEventListener('click', () => { R.revealed = !R.revealed; renderResult(); });
+  $('#btnCopySecret').addEventListener('click', () => copyText(R.text));
+  $('#btnFileDl').addEventListener('click', () => {
+    const r = R.result; download(new Blob([r.data], { type: 'application/octet-stream' }), r.name || 'shardkey-secret.bin');
+  });
+  $('#btnResetRec').addEventListener('click', resetRecover);
+  window.addEventListener('pagehide', stopCam);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) stopCam(); });
+
+  updateSrc();
+  rebuildPoly = initPoly();
+  applyI18n();
+}
+init();
+})();
 </script>
 </body>
 </html>
