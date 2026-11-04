@@ -184,7 +184,7 @@ test('large file: AES-256-GCM, key shares + separate ciphertext file, binary-exa
   assert.equal(await page.locator('#ctNeed').isVisible(), true);
   assert.equal(await page.locator('#result').isVisible(), false, 'needs the ciphertext file too');
   await page.setInputFiles('#ctFile', { name: 'garbage.shkc', mimeType: 'application/octet-stream', buffer: Buffer.from(rnd(300)) });
-  assert.match(await page.textContent('#msgs li:last-child span'), /not a valid ciphertext file/);
+  await page.waitForSelector('#msgs li:has-text("not a valid ciphertext file")');      // reported asynchronously after the recovery attempt
   await page.setInputFiles('#ctFile', ctPath);
   await page.waitForSelector('#resFile:not([hidden])');
   assert.match(await page.textContent('#resFileInfo'), /Schlüssel ✓\.bin · 5\.9 KB/);
