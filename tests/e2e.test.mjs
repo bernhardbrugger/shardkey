@@ -280,15 +280,13 @@ test('print view: one card per page (PDF) and print screenshot', async () => {
   await ctx.close();
 });
 
-test('German UI, mobile layout and explainer screenshots', async () => {
+test('English-only UI (even for a German browser locale), mobile layout and explainer screenshots', async () => {
   const { ctx, page, problems } = await open({ locale: 'de-AT', viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true });
-  assert.equal(await page.textContent('#tab-split'), 'Aufteilen');
-  assert.equal(await page.textContent('#tab-recover'), 'Wiederherstellen');
-  await page.click('#langBtn');
   assert.equal(await page.textContent('#tab-split'), 'Split');
-  await page.click('#langBtn');
-  await split(page, { text: 'Mobile Ansicht', label: 'Notfall-Passwort', n: 5, k: 3 });
-  assert.match(await page.textContent('.share-card[data-index="1"] .sc-count'), /Share 1 von 5 · 3 nötig/);
+  assert.equal(await page.textContent('#tab-recover'), 'Restore');
+  assert.equal(await page.locator('#langBtn').count(), 0, 'no language switch');
+  await split(page, { text: 'Mobile view', label: 'Emergency password', n: 5, k: 3 });
+  assert.match(await page.textContent('.share-card[data-index="1"] .sc-count'), /Share 1 of 5 · 3 needed/);
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: join(SHOTS, 'mobile.png'), fullPage: true, clip: { x: 0, y: 0, width: 390, height: 1700 } });
   await page.locator('#explain > summary').click();

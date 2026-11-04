@@ -46,8 +46,6 @@ Every share comes as a QR code plus text, and as a printable card (one per page)
    them, or paste the text. The counter shows "2 of 3 shares collected"; with the third share the secret appears
    (hidden until you click *Reveal*; files are offered as a download).
 
-The UI speaks English and German (button top right; follows the browser language).
-
 ## How Shamir's Secret Sharing works (in plain words)
 
 Two points determine exactly one straight line. Three points determine exactly one parabola. *k* points determine
