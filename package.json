@@ -1,0 +1,24 @@
+{
+  "name": "shardkey",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Split a secret into QR codes. Any k of n bring it back. One offline HTML file. (package.json exists only for the test suite - the app itself has no dependencies.)",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/core.test.mjs tests/csp.test.mjs",
+    "test:e2e": "node --test --test-concurrency=1 tests/e2e.test.mjs",
+    "test:all": "node --test --test-concurrency=1 tests/",
+    "seal": "node scripts/sync.mjs",
+    "seal:check": "node scripts/sync.mjs --check"
+  },
+  "devDependencies": {
+    "jsqr": "1.4.0",
+    "playwright": "1.64.1",
+    "pngjs": "7.0.0",
+    "qrcode-generator": "2.0.4"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
