@@ -48,8 +48,10 @@ jobs:
           cp index.html _site/index.html
           touch _site/.nojekyll
       - uses: actions/configure-pages@v6
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: _site
+          # v4+ drops dotfiles by default; keep _site/.nojekyll in the artifact
+          include-hidden-files: true
       - id: deployment
         uses: actions/deploy-pages@v4
