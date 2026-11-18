@@ -1,0 +1,20 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # test tooling only; one PR per week for minor and patch updates
+      test-tooling:
+        patterns: ['playwright', 'pngjs']
+        update-types: ['minor', 'patch']
+    # qrcode-generator and jsqr are inlined into index.html. A bump of either one
+    # gets its own PR, and CI stays red ("index.html is sealed" in
+    # tests/csp.test.mjs) until someone runs `npm run seal` on that branch and
+    # commits the refreshed copy and CSP hashes.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
